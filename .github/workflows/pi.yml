@@ -7,14 +7,13 @@ jobs:
   calculate-pi:
     runs-on: ubuntu-latest
     steps:
-      - name: Calculate Pi to 20 decimal places
+      - name: Calculate Pi to 23 decimal places
         run: |
           python3 -c "
           from decimal import Decimal, getcontext
-          getcontext().prec = 25
+          getcontext().prec = 30
 
-          # Machin formula: pi/4 = 4*arctan(1/5) - arctan(1/239)
-          def arctan(x, terms=100):
+          def arctan(x, terms=200):
               result = Decimal(0)
               power = Decimal(x)
               for i in range(terms):
@@ -23,6 +22,14 @@ jobs:
               return result
 
           pi = 4 * (4 * arctan(Decimal(1)/5) - arctan(Decimal(1)/239))
-          print(f'Pi = {pi}')
-          print(f'First 20 decimals: {str(pi)[:22]}')
+          pi_str = str(pi)
+
+          print('=' * 40)
+          print('🥧  Pi Calculator — 23 Decimal Places')
+          print('=' * 40)
+          print(f'π = {pi_str[:25]}')
+          print(f'✅ Digits: 3.{pi_str[2:25]}')
+          print('=' * 40)
+          print('Known value:')
+          print('π = 3.14159265358979323846264')
           "
