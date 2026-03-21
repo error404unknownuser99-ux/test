@@ -1,0 +1,28 @@
+name: Calculate Pi 🥧
+
+on:
+  workflow_dispatch:
+
+jobs:
+  calculate-pi:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Calculate Pi to 20 decimal places
+        run: |
+          python3 -c "
+          from decimal import Decimal, getcontext
+          getcontext().prec = 25
+
+          # Machin formula: pi/4 = 4*arctan(1/5) - arctan(1/239)
+          def arctan(x, terms=100):
+              result = Decimal(0)
+              power = Decimal(x)
+              for i in range(terms):
+                  result += ((-1)**i * power) / (2*i + 1)
+                  power *= Decimal(x) * Decimal(x)
+              return result
+
+          pi = 4 * (4 * arctan(Decimal(1)/5) - arctan(Decimal(1)/239))
+          print(f'Pi = {pi}')
+          print(f'First 20 decimals: {str(pi)[:22]}')
+          "
