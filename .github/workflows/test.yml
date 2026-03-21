@@ -1,11 +1,48 @@
-name: Hello World
+name: System Specs Check
 
 on:
   workflow_dispatch:
 
 jobs:
-  hello:
+  check-specs:
     runs-on: ubuntu-latest
+    
     steps:
-      - name: Say Hello
-        run: echo "Hello World!"
+      - name: CPU Info
+        run: |
+          echo "========== CPU INFO =========="
+          cat /proc/cpuinfo | grep "model name" | head -1
+          echo "CPU Cores: $(nproc)"
+          echo "CPU Threads: $(grep -c processor /proc/cpuinfo)"
+          lscpu | grep -E "CPU\(s\)|Thread|Core|Socket|MHz|Architecture"
+
+      - name: RAM Info
+        run: |
+          echo "========== RAM INFO =========="
+          free -h
+          cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable|SwapTotal"
+
+      - name: Storage Info
+        run: |
+          echo "========== STORAGE INFO =========="
+          df -h
+          lsblk
+
+      - name: GPU Info
+        run: |
+          echo "========== GPU INFO =========="
+          lspci | grep -i "vga\|3d\|display\|nvidia\|amd\|intel" || echo "❌ No dedicated GPU found"
+          ls /dev/nvidia* 2>/dev/null || echo "❌ No NVIDIA device found"
+          which nvidia-smi && nvidia-smi || echo "❌ nvidia-smi not available"
+
+      - name: OS Info
+        run: |
+          echo "========== OS INFO =========="
+          uname -a
+          cat /etc/os-release
+
+      - name: Network Info
+        run: |
+          echo "========== NETWORK =========="
+          curl -s ifconfig.me || echo "External IP check"
+          cat /etc/resolv.conf
