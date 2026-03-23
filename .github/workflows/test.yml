@@ -15,8 +15,9 @@ jobs:
       with:
         node-version: '20'
     
+    # फिक्स: npm की जगह ऑफिसियल curl स्क्रिप्ट का इस्तेमाल
     - name: Install OpenCode
-      run: npm install -g opencode@latest
+      run: curl -fsSL https://opencode.ai/install | bash
     
     - name: Setup Google AI Studio API Key
       env:
@@ -33,16 +34,21 @@ jobs:
     - name: Health Check
       run: curl -f http://localhost:3000/health || exit 1
     
-    - name: Get bore.pub tunnel
+    # फिक्स: bore का पोर्ट सही तरीके से निकालना
+    - name: Start bore.pub tunnel
       id: bore
       run: |
         curl -sSfL https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /tmp
         sudo mv /tmp/bore /usr/local/bin/
-        bore local 3000 --to bore.pub &
-        BORE_PID=$!
-        sleep 10
-        BORE_URL=$(curl -s localhost:80 | grep -o 'bore.pub:[0-9]*' | head -1 || echo "bore.pub:1337")
-        echo "url=http://$BORE_URL" >> $GITHUB_OUTPUT
+        
+        # bore को रन करना और लॉग सेव करना
+        nohup bore local 3000 --to bore.pub > bore.log 2>&1 &
+        sleep 5
+        
+        # लॉग फाइल से सही पोर्ट एक्सट्रेक्ट करना
+        BORE_PORT=$(grep -oP 'listening at bore.pub:\K\d+' bore.log || echo "PORT_NOT_FOUND")
+        echo "url=http://bore.pub:$BORE_PORT" >> $GITHUB_OUTPUT
+        echo "Bore Tunnel URL: http://bore.pub:$BORE_PORT"
     
     - name: Deploy Success Notification
       if: success()
@@ -51,3 +57,10 @@ jobs:
         script: |
           core.setOutput('url', '${{ steps.bore.outputs.url }}');
           console.log('🚀 OpenCode Web Live at: ${{ steps.bore.outputs.url }}');
+          
+    # फिक्स: GitHub Action को तुरंत बंद होने से रोकना ताकि तुम सर्वर एक्सेस कर सको
+    - name: Keep Runner Alive (Temporary)
+      run: |
+        echo "✅ सर्वर चालू है! इसे एक्सेस करने के लिए ऊपर 'Start bore.pub tunnel' स्टेप में दिया गया लिंक ओपन करें।"
+        echo "⚠️ ध्यान दें: यह सेशन 1 घंटे बाद अपने आप बंद हो जाएगा।"
+        sleep 3600
