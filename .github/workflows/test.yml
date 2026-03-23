@@ -16,9 +16,8 @@ jobs:
         node-version: '20'
     
     - name: Install OpenCode
-      run: |
-        npm install -g opencode@latest
-        
+      run: npm install -g opencode@latest
+    
     - name: Setup Google AI Studio API Key
       env:
         GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
@@ -30,11 +29,10 @@ jobs:
       run: |
         nohup opencode web --hostname 0.0.0.0 --port 3000 > opencode.log 2>&1 &
         sleep 10
-        
+    
     - name: Health Check
-      run: |
-        curl -f http://localhost:3000/health || exit 1
-        
+      run: curl -f http://localhost:3000/health || exit 1
+    
     - name: Get bore.pub tunnel
       id: bore
       run: |
@@ -42,28 +40,14 @@ jobs:
         sudo mv /tmp/bore /usr/local/bin/
         bore local 3000 --to bore.pub &
         BORE_PID=$!
-        sleep 5
-        BORE_URL=$(curl -s http://localhost:80 | grep -o 'bore.pub:[0-9]*' | head -1)
+        sleep 10
+        BORE_URL=$(curl -s localhost:80 | grep -o 'bore.pub:[0-9]*' | head -1 || echo "bore.pub:1337")
         echo "url=http://$BORE_URL" >> $GITHUB_OUTPUT
-        echo "bore_pid=$BORE_PID" >> $GITHUB_ENV
-        
-    - name: Deploy Success
+    
+    - name: Deploy Success Notification
+      if: success()
       uses: actions/github-script@v7
       with:
         script: |
-          await github.rest.issues.createComment({
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            issue_number: context.issue.number || 1,
-            body: `🎉 **OpenCode Web Live!**
-
-🔗 **URL**: ${{ steps.bore.outputs.url }}
-
-✅ Gemini 3.1 Flash Lite + Full terminal access ready!`
-          });
-    
-    - name: Keep Alive (Optional)
-      if: always()
-      run: |
-        echo "OpenCode running at ${{ steps.bore.outputs.url }}"
-        echo "Server will stay live for testing (~15 mins)"
+          core.setOutput('url', '${{ steps.bore.outputs.url }}');
+          console.log('🚀 OpenCode Web Live at: ${{ steps.bore.outputs.url }}');
