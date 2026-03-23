@@ -1,48 +1,69 @@
-name: System Specs Check
-
-on:
+name: Deploy OpenCode Web on bore.pub
+on: 
   workflow_dispatch:
+  push:
+    branches: [ main ]
 
 jobs:
-  check-specs:
+  deploy:
     runs-on: ubuntu-latest
-    
     steps:
-      - name: CPU Info
-        run: |
-          echo "========== CPU INFO =========="
-          cat /proc/cpuinfo | grep "model name" | head -1
-          echo "CPU Cores: $(nproc)"
-          echo "CPU Threads: $(grep -c processor /proc/cpuinfo)"
-          lscpu | grep -E "CPU\(s\)|Thread|Core|Socket|MHz|Architecture"
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20'
+    
+    - name: Install OpenCode
+      run: |
+        npm install -g opencode@latest
+        
+    - name: Setup Google AI Studio API Key
+      env:
+        GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
+      run: |
+        mkdir -p ~/.opencode
+        echo '{"provider": "google", "apiKey": "'$GOOGLE_AI_API_KEY'", "model": "gemini-3.1-flash-lite"}' > ~/.opencode/config.json
+    
+    - name: Start OpenCode Web Server
+      run: |
+        nohup opencode web --hostname 0.0.0.0 --port 3000 > opencode.log 2>&1 &
+        sleep 10
+        
+    - name: Health Check
+      run: |
+        curl -f http://localhost:3000/health || exit 1
+        
+    - name: Get bore.pub tunnel
+      id: bore
+      run: |
+        curl -sSfL https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /tmp
+        sudo mv /tmp/bore /usr/local/bin/
+        bore local 3000 --to bore.pub &
+        BORE_PID=$!
+        sleep 5
+        BORE_URL=$(curl -s http://localhost:80 | grep -o 'bore.pub:[0-9]*' | head -1)
+        echo "url=http://$BORE_URL" >> $GITHUB_OUTPUT
+        echo "bore_pid=$BORE_PID" >> $GITHUB_ENV
+        
+    - name: Deploy Success
+      uses: actions/github-script@v7
+      with:
+        script: |
+          await github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: context.issue.number || 1,
+            body: `🎉 **OpenCode Web Live!**
 
-      - name: RAM Info
-        run: |
-          echo "========== RAM INFO =========="
-          free -h
-          cat /proc/meminfo | grep -E "MemTotal|MemFree|MemAvailable|SwapTotal"
+🔗 **URL**: ${{ steps.bore.outputs.url }}
 
-      - name: Storage Info
-        run: |
-          echo "========== STORAGE INFO =========="
-          df -h
-          lsblk
-
-      - name: GPU Info
-        run: |
-          echo "========== GPU INFO =========="
-          lspci | grep -i "vga\|3d\|display\|nvidia\|amd\|intel" || echo "❌ No dedicated GPU found"
-          ls /dev/nvidia* 2>/dev/null || echo "❌ No NVIDIA device found"
-          which nvidia-smi && nvidia-smi || echo "❌ nvidia-smi not available"
-
-      - name: OS Info
-        run: |
-          echo "========== OS INFO =========="
-          uname -a
-          cat /etc/os-release
-
-      - name: Network Info
-        run: |
-          echo "========== NETWORK =========="
-          curl -s ifconfig.me || echo "External IP check"
-          cat /etc/resolv.conf
+✅ Gemini 3.1 Flash Lite + Full terminal access ready!`
+          });
+    
+    - name: Keep Alive (Optional)
+      if: always()
+      run: |
+        echo "OpenCode running at ${{ steps.bore.outputs.url }}"
+        echo "Server will stay live for testing (~15 mins)"
