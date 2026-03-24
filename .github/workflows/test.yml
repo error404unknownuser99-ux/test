@@ -1,4 +1,4 @@
-name: Aider GUI 3.1 Flash Lite - Final Success
+name: Aider GUI Debug Mode (Live Logs)
 
 on:
   workflow_dispatch:
@@ -17,44 +17,54 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Tools
+      - name: Build & Install Aider (Detailed Log)
         run: |
-          pip install aider-chat
+          echo "🛠️ Installing Aider..."
+          pip install aider-chat --verbose
+          
+          echo "🛠️ Downloading Bore..."
           wget https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           tar -xf bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           chmod +x bore
 
-      - name: Launch Aider GUI & Bore Tunnel
+      - name: Launch Aider & Bore with Live Logs
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          STREAMLIT_SERVER_ADDRESS: 0.0.0.0
           STREAMLIT_SERVER_PORT: 8501
+          STREAMLIT_HEADLESS: "true"
         run: |
-          echo "🚀 Launching Aider with gemini-3.1-flash-lite..."
-          
-          # Aider ko background mein start kar rahe hain
+          echo "🚀 Starting Aider with gemini-3.1-flash-lite..."
+          # Aider ko launch karke logs ko 'aider.log' mein save kar rahe hain
           nohup aider --gui --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
           
-          echo "⏳ Waiting 60 seconds for Streamlit/Aider to fully initialize..."
-          sleep 60
+          echo "⏳ Waiting 30s for Aider..."
+          sleep 30
           
           echo "🌐 Starting Bore Tunnel..."
-          # Bore ko background mein start karke logs capture karenge
-          ./bore local 8501 --to bore.pub > bore.log 2>&1 &
+          # Bore ko launch karke logs ko 'bore.log' mein save kar rahe hain
+          ./bore local 8501 --to bore.pub --local-host 0.0.0.0 > bore.log 2>&1 &
           
-          sleep 10
+          echo "----------------------------------------------------------"
+          echo "📝 LIVE LOGS STARTING NOW (Aider + Bore Combined)"
+          echo "----------------------------------------------------------"
           
-          # URL extract karke print karna
-          BORE_URL=$(grep -o 'bore.pub:[0-9]*' bore.log | head -n 1)
+          # Ye command dono files ke naye lines ko screen par print karti rahegi
+          # Isse aapko har request ka status live dikhega
+          tail -f aider.log -f bore.log &
           
-          echo "=========================================================="
-          echo "🎉 SAB KUCH SET HAI!"
-          if [ -z "$BORE_URL" ]; then
-            echo "❌ BORE URL nahi mila, logs check karein niche."
-            cat bore.log
-          else
-            echo "🔗 APKA URL HAI: http://$BORE_URL"
-          fi
-          echo "=========================================================="
-          
-          # Logs ko continuous dikhane ke liye taaki action chalta rahe
-          tail -f aider.log
+          # URL extract karke baar-baar dikhane ke liye loop
+          for i in {1..20}; do
+            BORE_URL=$(grep -o 'bore.pub:[0-9]*' bore.log | head -n 1)
+            if [ ! -z "$BORE_URL" ]; then
+              echo ""
+              echo "=========================================================="
+              echo "🔗 APKA URL HAI: http://$BORE_URL"
+              echo "=========================================================="
+              break
+            fi
+            sleep 5
+          done
+
+          # Workflow ko 3 ghante zinda rakhne ke liye
+          sleep 10800
