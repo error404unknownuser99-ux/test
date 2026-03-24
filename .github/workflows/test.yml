@@ -39,26 +39,21 @@ jobs:
 
       - name: 🖥️ Start Display + Fluxbox + VNC + bore
         run: |
-          # Virtual display start karo
           Xvfb :1 -screen 0 1920x1080x24 &
           export DISPLAY=:1
           sleep 2
 
-          # Fluxbox window manager (iske bina windows black dikhti hain!)
           fluxbox &
           sleep 3
           echo "✅ Display + Fluxbox Ready!"
 
-          # VNC start karo same display pe
           x11vnc -display :1 -nopw -forever -shared -bg -o /tmp/x11vnc.log -xkb -capslock -skip_lockkeys
           sleep 2
           echo "✅ VNC Started!"
 
-          # bore install karo
           curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz | tar zx -C /usr/local/bin
           chmod +x /usr/local/bin/bore
 
-          # Background mein tunnel start karo
           bore local 5900 --to bore.pub 2>&1 | tee /tmp/bore.log &
           sleep 5
 
@@ -74,30 +69,26 @@ jobs:
       - name: 📱 Android Emulator — Xvfb :1 pe!
         uses: reactivecircus/android-emulator-runner@v2
         env:
-          DISPLAY: :1                    # ✅ Same display jahan VNC hai!
+          DISPLAY: :1
         with:
           api-level: 28
           target: google_apis_playstore
           arch: x86_64
           ram-size: 4096M
           heap-size: 1024M
-          # ✅ -no-window HATA DIYA! Ab window banegi screen pe!
           emulator-options: -no-snapshot-save -noaudio -no-boot-anim -gpu swiftshader_indirect -prop qemu.hw.mainkeys=0
           disable-animations: true
           script: |
             echo "✅ Emulator chal raha hai :1 display pe!"
 
-            # F-Droid install karo
             adb install fdroid.apk
             echo "✅ F-Droid Installed!"
 
-            # F-Droid open karo
             adb shell monkey -p org.fdroid.fdroid 1
             sleep 3
 
             echo "📱 Ab phone pe VNC mein Android dikhega!"
 
-            # Session chal ti rahe
             sleep 18000
 
       - name: 🔐 SSH via tmate
