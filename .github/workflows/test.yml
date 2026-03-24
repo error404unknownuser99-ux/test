@@ -1,7 +1,7 @@
-name: Aider GUI 3-Hour Secure Session
+name: Aider GUI 3.1 Flash Lite - Pro Setup
 
 on:
-  workflow_dispatch: # Isse aap manually 'Actions' tab se start kar sakte hain
+  workflow_dispatch:
 
 jobs:
   run-aider:
@@ -10,40 +10,58 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 # Aider ko git history chahiye hoti hai taaki wo sahi se code edit kar sake
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Install Aider and Bore
+      - name: Install Tools
         run: |
           pip install aider-chat
-          # Bore CLI download (Tunneling ke liye)
           wget https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           tar -xf bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           chmod +x bore
 
-      - name: Launch Aider GUI & Bore Tunnel
+      - name: Launch Aider GUI & Auto-Check
         env:
-          # Google AI Studio key ko Secrets se utha raha hai
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "Starting Aider with Gemini 1.5 Pro..."
+          echo "🚀 Starting Aider with gemini-3.1-flash-lite..."
           
-          # Aider ko background mein launch kar rahe hain
-          # --no-browser: Taaki runner ke andar browser na khule
-          # --gui: Browser interface enable karne ke liye
-          # --port 8501: Default streamlit port
+          # Aider Launch
           nohup aider --gui --port 8501 --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
           
-          sleep 10 # Aider load hone ka wait
+          echo "⏳ Waiting for Aider GUI to respond on port 8501..."
           
-          echo "----------------------------------------------------------"
-          echo "  AIDER IS RUNNING! CHECK THE BORE URL BELOW             "
-          echo "----------------------------------------------------------"
+          # Retry loop: 30 seconds tak check karega ki port 8501 up hai ya nahi
+          MAX_RETRIES=15
+          COUNT=0
+          while ! nc -z localhost 8501; do
+            sleep 2
+            COUNT=$((COUNT+1))
+            echo "Retry $COUNT/$MAX_RETRIES: GUI abhi tak start nahi hua..."
+            if [ $COUNT -eq $MAX_RETRIES ]; then
+              echo "❌ ERROR: Aider GUI start hone mein fail ho gaya. Logs niche dekhein:"
+              cat aider.log
+              exit 1
+            fi
+          done
+
+          echo "✅ Aider GUI successfully started on localhost:8501!"
           
-          # 180 minutes = 3 hours ka session
-          # Bore automatically ek public URL generate karega
-          timeout 180m ./bore local 8501 --to bore.pub
+          # Bore Tunnel start karna aur URL extract karna
+          echo "🌐 Starting Bore Tunnel..."
+          ./bore local 8501 --to bore.pub > bore.log 2>&1 &
+          
+          sleep 5
+          BORE_URL=$(grep -o 'bore.pub:[0-9]*' bore.log | head -n 1)
+          
+          echo "=========================================================="
+          echo "🎉 SETUP SUCCESSFUL!"
+          echo "🔗 APKA URL HAI: http://$BORE_URL"
+          echo "=========================================================="
+          
+          # 3 hours session
+          timeout 180m tail -f aider.log
