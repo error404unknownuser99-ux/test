@@ -1,4 +1,4 @@
-name: Aider Streamlit Status Check
+name: Aider GUI Server Start Fix
 
 on:
   workflow_dispatch:
@@ -24,39 +24,41 @@ jobs:
           tar -xf bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           chmod +x bore
 
-      - name: Launch Aider & Show Internal URL
+      - name: Launch Aider GUI Server
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "🚀 Aider ko start kar rahe hain..."
+          echo "🚀 Aider GUI Server ko background mein start kar rahe hain..."
           
-          # Aider ko launch kar rahe hain. --no-browser zaroori hai.
-          nohup aider --gui --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
+          # MODIFIED COMMAND:
+          # --gui: GUI mode enable karta hai
+          # --browser false: Runner ke andar browser kholne se rokta hai (Ye zaroori hai!)
+          nohup aider --gui --model gemini/gemini-3.1-flash-lite --browser false > aider.log 2>&1 &
           
-          echo "⏳ 40 seconds wait kar rahe hain taaki Streamlit load ho jaye..."
-          sleep 40
+          echo "⏳ 50 seconds wait kar rahe hain Streamlit server ke liye..."
+          sleep 50
           
-          echo "📝 --- AIDER LOGS (Starting se) ---"
+          echo "📝 --- LATEST AIDER LOGS ---"
           cat aider.log
-          echo "📝 ---------------------------------"
           
-          echo "🔍 Checking Internal Connectivity..."
-          # Ye command check karegi ki kya port 8501 par kuch mil raha hai
+          echo "🔍 Port 8501 Status Check..."
           if curl -s http://localhost:8501 > /dev/null; then
-            echo "✅ SUCCESS: Aider Streamlit port 8501 par response de raha hai!"
+            echo "✅ SUCCESS: Streamlit GUI is UP and Running!"
           else
-            echo "❌ ERROR: Aider port 8501 par connect nahi ho pa raha. Logs check karein."
+            echo "❌ ERROR: Aider CLI mode mein hi ruk gaya, GUI start nahi hua."
+            # Debugging ke liye check karein ki process kya kar raha hai
+            ps aux | grep aider
             exit 1
           fi
 
-          echo "🌐 Starting Bore Tunnel ab..."
+          echo "🌐 Starting Bore Tunnel..."
           ./bore local 8501 --to bore.pub > bore.log 2>&1 &
           
           sleep 10
           BORE_URL=$(grep -o 'bore.pub:[0-9]*' bore.log | head -n 1)
           
           echo "=========================================================="
-          echo "🔗 APKA PUBLIC URL: http://$BORE_URL"
+          echo "🔗 APKA URL: http://$BORE_URL"
           echo "=========================================================="
           
           tail -f aider.log -f bore.log
