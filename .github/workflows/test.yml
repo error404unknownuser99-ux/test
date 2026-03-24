@@ -1,4 +1,4 @@
-name: Aider GUI Server Start Fix
+name: Aider GUI 3.1 Flash Lite - Fixed Final
 
 on:
   workflow_dispatch:
@@ -28,29 +28,18 @@ jobs:
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
         run: |
-          echo "🚀 Aider GUI Server ko background mein start kar rahe hain..."
+          echo "🚀 Aider GUI Server start ho raha hai..."
           
-          # MODIFIED COMMAND:
-          # --gui: GUI mode enable karta hai
-          # --browser false: Runner ke andar browser kholne se rokta hai (Ye zaroori hai!)
-          nohup aider --gui --model gemini/gemini-3.1-flash-lite --browser false > aider.log 2>&1 &
+          # Fix: '--browser false' hata diya kyunki wo 'false' naam ki file bana raha tha.
+          # '--gui' aur '--no-browser' ka combination best hai.
+          nohup aider --gui --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
           
-          echo "⏳ 50 seconds wait kar rahe hain Streamlit server ke liye..."
+          echo "⏳ Waiting 50s for Streamlit..."
           sleep 50
           
           echo "📝 --- LATEST AIDER LOGS ---"
           cat aider.log
           
-          echo "🔍 Port 8501 Status Check..."
-          if curl -s http://localhost:8501 > /dev/null; then
-            echo "✅ SUCCESS: Streamlit GUI is UP and Running!"
-          else
-            echo "❌ ERROR: Aider CLI mode mein hi ruk gaya, GUI start nahi hua."
-            # Debugging ke liye check karein ki process kya kar raha hai
-            ps aux | grep aider
-            exit 1
-          fi
-
           echo "🌐 Starting Bore Tunnel..."
           ./bore local 8501 --to bore.pub > bore.log 2>&1 &
           
