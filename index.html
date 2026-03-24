@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Resume Generator</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div class="editor">
+        <h1>Resume Generator</h1>
+
+        <section>
+          <h2>Personal Info</h2>
+          <input type="text" id="name" placeholder="Full Name" />
+          <input type="text" id="title" placeholder="Job Title" />
+          <input type="email" id="email" placeholder="Email" />
+          <input type="tel" id="phone" placeholder="Phone" />
+          <input type="text" id="location" placeholder="Location" />
+          <input type="text" id="linkedin" placeholder="LinkedIn URL" />
+        </section>
+
+        <section>
+          <h2>Professional Summary</h2>
+          <textarea id="summary" rows="4" placeholder="Write a brief summary about yourself..."></textarea>
+        </section>
+
+        <section>
+          <h2>Work Experience</h2>
+          <div id="experience-list">
+            <div class="experience-item">
+              <input type="text" class="job-title" placeholder="Job Title" />
+              <input type="text" class="company" placeholder="Company" />
+              <input type="text" class="duration" placeholder="Duration (e.g. 2020 - 2023)" />
+              <textarea class="description" rows="3" placeholder="Job description..."></textarea>
+            </div>
+          </div>
+          <button onclick="addExperience()">+ Add Experience</button>
+        </section>
+
+        <section>
+          <h2>Education</h2>
+          <div id="education-list">
+            <div class="education-item">
+              <input type="text" class="degree" placeholder="Degree" />
+              <input type="text" class="institution" placeholder="Institution" />
+              <input type="text" class="year" placeholder="Year" />
+            </div>
+          </div>
+          <button onclick="addEducation()">+ Add Education</button>
+        </section>
+
+        <section>
+          <h2>Skills</h2>
+          <textarea id="skills" rows="3" placeholder="List your skills (comma separated)..."></textarea>
+        </section>
+
+        <button class="print-btn" onclick="window.print()">Download PDF</button>
+      </div>
+
+      <div class="preview" id="resume">
+        <div class="resume-header">
+          <h1 id="preview-name">Your Name</h1>
+          <p id="preview-title" class="job-title">Job Title</p>
+          <div class="contact-info">
+            <span id="preview-email"></span>
+            <span id="preview-phone"></span>
+            <span id="preview-location"></span>
+            <span id="preview-linkedin"></span>
+          </div>
+        </div>
+
+        <div class="resume-section" id="preview-summary-section">
+          <h2>Professional Summary</h2>
+          <p id="preview-summary"></p>
+        </div>
+
+        <div class="resume-section" id="preview-experience-section">
+          <h2>Work Experience</h2>
+          <div id="preview-experience"></div>
+        </div>
+
+        <div class="resume-section" id="preview-education-section">
+          <h2>Education</h2>
+          <div id="preview-education"></div>
+        </div>
+
+        <div class="resume-section" id="preview-skills-section">
+          <h2>Skills</h2>
+          <p id="preview-skills"></p>
+        </div>
+      </div>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+</html>
