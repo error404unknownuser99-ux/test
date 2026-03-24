@@ -1,68 +1,105 @@
-name: Aider GUI 3.1 Flash Lite - Fixed Final
+name: 🤖 Android Emulator + VNC
 
 on:
+  push:
   workflow_dispatch:
 
 jobs:
-  run-aider:
+  android-vnc:
     runs-on: ubuntu-latest
+    timeout-minutes: 350
+
     steps:
-      - name: Checkout Repository
+
+      - name: 📥 Checkout
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
 
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Install Aider & Browser Bundle
+      - name: ⚡ Enable KVM
         run: |
-          pip install aider-chat
-          # GUI ke liye browser features manually install kar rahe hain
-          pip install 'aider-chat[browser]'
-          
-          # Bore Tunnel Setup
-          wget https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
-          tar -xf bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
-          chmod +x bore
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
 
-      - name: Launch Aider GUI Server
+      - name: ☕ Setup Java
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: 📦 Install Display + VNC packages
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb x11vnc fluxbox wmctrl libpulse0 libnss3 libglu1-mesa
+          echo "✅ Packages installed!"
+
+      - name: 📦 Download F-Droid APK
+        run: |
+          curl -L https://f-droid.org/F-Droid.apk -o fdroid.apk
+          echo "✅ F-Droid Downloaded!"
+
+      - name: 🖥️ Start Display + Fluxbox + VNC + bore
+        run: |
+          # Virtual display start karo
+          Xvfb :1 -screen 0 1920x1080x24 &
+          export DISPLAY=:1
+          sleep 2
+
+          # Fluxbox window manager (iske bina windows black dikhti hain!)
+          fluxbox &
+          sleep 3
+          echo "✅ Display + Fluxbox Ready!"
+
+          # VNC start karo same display pe
+          x11vnc -display :1 -nopw -forever -shared -bg -o /tmp/x11vnc.log -xkb -capslock -skip_lockkeys
+          sleep 2
+          echo "✅ VNC Started!"
+
+          # bore install karo
+          curl -Ls https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz | tar zx -C /usr/local/bin
+          chmod +x /usr/local/bin/bore
+
+          # Background mein tunnel start karo
+          bore local 5900 --to bore.pub 2>&1 | tee /tmp/bore.log &
+          sleep 5
+
+          echo "============================================"
+          echo "📱 PHONE PE YEH KARO:"
+          echo "App  : RealVNC / MultiVNC"
+          echo "Host : bore.pub"
+          echo "Port : (neeche dekho)"
+          cat /tmp/bore.log | grep "remote_port\|listening"
+          echo "Pass : koi nahi - seedha connect!"
+          echo "============================================"
+
+      - name: 📱 Android Emulator — Xvfb :1 pe!
+        uses: reactivecircus/android-emulator-runner@v2
         env:
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          # Streamlit ko headless mode me chalane ke liye
-          STREAMLIT_SERVER_HEADLESS: "true"
-          STREAMLIT_SERVER_PORT: 8501
-        run: |
-          echo "🚀 Aider GUI start ho raha hai..."
-          
-          # Fix: Humne '--browser false' hata diya hai taaki wo file na banaye
-          # '--no-browser' use kar rahe hain jo standard hai
-          nohup aider --gui --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
-          
-          echo "⏳ 50 seconds wait kar rahe hain Streamlit ke liye..."
-          sleep 50
-          
-          echo "📝 --- LATEST AIDER LOGS ---"
-          cat aider.log
-          
-          echo "🔍 Port Check..."
-          if curl -s http://localhost:8501 > /dev/null; then
-            echo "✅ SUCCESS: GUI is UP!"
-          else
-            echo "❌ ERROR: Port 8501 respond nahi kar raha."
-            exit 1
-          fi
+          DISPLAY: :1                    # ✅ Same display jahan VNC hai!
+        with:
+          api-level: 28
+          target: google_apis_playstore
+          arch: x86_64
+          ram-size: 4096M
+          heap-size: 1024M
+          # ✅ -no-window HATA DIYA! Ab window banegi screen pe!
+          emulator-options: -no-snapshot-save -noaudio -no-boot-anim -gpu swiftshader_indirect -prop qemu.hw.mainkeys=0
+          disable-animations: true
+          script: |
+            echo "✅ Emulator chal raha hai :1 display pe!"
 
-          echo "🌐 Starting Bore Tunnel..."
-          ./bore local 8501 --to bore.pub > bore.log 2>&1 &
-          
-          sleep 10
-          BORE_URL=$(grep -o 'bore.pub:[0-9]*' bore.log | head -n 1)
-          
-          echo "=========================================================="
-          echo "🔗 APKA URL: http://$BORE_URL"
-          echo "=========================================================="
-          
-          tail -f aider.log -f bore.log
+            # F-Droid install karo
+            adb install fdroid.apk
+            echo "✅ F-Droid Installed!"
+
+            # F-Droid open karo
+            adb shell monkey -p org.fdroid.fdroid 1
+            sleep 3
+
+            echo "📱 Ab phone pe VNC mein Android dikhega!"
+
+            # Session chal ti rahe
+            sleep 18000
+
+      - name: 🔐 SSH via tmate
+        uses: mxschmitt/action-tmate@v3
+        if: always()
