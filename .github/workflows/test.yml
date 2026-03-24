@@ -1,66 +1,49 @@
-name: Deploy OpenCode Web on bore.pub
-on: 
-  workflow_dispatch:
-  push:
-    branches: [ main ]
+name: Aider GUI 3-Hour Secure Session
+
+on:
+  workflow_dispatch: # Isse aap manually 'Actions' tab se start kar sakte hain
 
 jobs:
-  deploy:
+  run-aider:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    
-    - name: Setup Node.js
-      uses: actions/setup-node@v4
-      with:
-        node-version: '20'
-    
-    # फिक्स: npm की जगह ऑफिसियल curl स्क्रिप्ट का इस्तेमाल
-    - name: Install OpenCode
-      run: curl -fsSL https://opencode.ai/install | bash
-    
-    - name: Setup Google AI Studio API Key
-      env:
-        GOOGLE_AI_API_KEY: ${{ secrets.GOOGLE_AI_API_KEY }}
-      run: |
-        mkdir -p ~/.opencode
-        echo '{"provider": "google", "apiKey": "'$GOOGLE_AI_API_KEY'", "model": "gemini-3.1-flash-lite"}' > ~/.opencode/config.json
-    
-    - name: Start OpenCode Web Server
-      run: |
-        nohup opencode web --hostname 0.0.0.0 --port 3000 > opencode.log 2>&1 &
-        sleep 10
-    
-    - name: Health Check
-      run: curl -f http://localhost:3000/health || exit 1
-    
-    # फिक्स: bore का पोर्ट सही तरीके से निकालना
-    - name: Start bore.pub tunnel
-      id: bore
-      run: |
-        curl -sSfL https://github.com/ekzhang/bore/releases/download/v0.6.0/bore-v0.6.0-x86_64-unknown-linux-musl.tar.gz | tar -xz -C /tmp
-        sudo mv /tmp/bore /usr/local/bin/
-        
-        # bore को रन करना और लॉग सेव करना
-        nohup bore local 3000 --to bore.pub > bore.log 2>&1 &
-        sleep 5
-        
-        # लॉग फाइल से सही पोर्ट एक्सट्रेक्ट करना
-        BORE_PORT=$(grep -oP 'listening at bore.pub:\K\d+' bore.log || echo "PORT_NOT_FOUND")
-        echo "url=http://bore.pub:$BORE_PORT" >> $GITHUB_OUTPUT
-        echo "Bore Tunnel URL: http://bore.pub:$BORE_PORT"
-    
-    - name: Deploy Success Notification
-      if: success()
-      uses: actions/github-script@v7
-      with:
-        script: |
-          core.setOutput('url', '${{ steps.bore.outputs.url }}');
-          console.log('🚀 OpenCode Web Live at: ${{ steps.bore.outputs.url }}');
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Aider ko git history chahiye hoti hai taaki wo sahi se code edit kar sake
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Aider and Bore
+        run: |
+          pip install aider-chat
+          # Bore CLI download (Tunneling ke liye)
+          wget https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
+          tar -xf bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
+          chmod +x bore
+
+      - name: Launch Aider GUI & Bore Tunnel
+        env:
+          # Google AI Studio key ko Secrets se utha raha hai
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: |
+          echo "Starting Aider with Gemini 1.5 Pro..."
           
-    # फिक्स: GitHub Action को तुरंत बंद होने से रोकना ताकि तुम सर्वर एक्सेस कर सको
-    - name: Keep Runner Alive (Temporary)
-      run: |
-        echo "✅ सर्वर चालू है! इसे एक्सेस करने के लिए ऊपर 'Start bore.pub tunnel' स्टेप में दिया गया लिंक ओपन करें।"
-        echo "⚠️ ध्यान दें: यह सेशन 1 घंटे बाद अपने आप बंद हो जाएगा।"
-        sleep 3600
+          # Aider ko background mein launch kar rahe hain
+          # --no-browser: Taaki runner ke andar browser na khule
+          # --gui: Browser interface enable karne ke liye
+          # --port 8501: Default streamlit port
+          nohup aider --gui --port 8501 --model gemini/gemini-1.5-pro --no-browser > aider.log 2>&1 &
+          
+          sleep 10 # Aider load hone ka wait
+          
+          echo "----------------------------------------------------------"
+          echo "  AIDER IS RUNNING! CHECK THE BORE URL BELOW             "
+          echo "----------------------------------------------------------"
+          
+          # 180 minutes = 3 hours ka session
+          # Bore automatically ek public URL generate karega
+          timeout 180m ./bore local 8501 --to bore.pub
