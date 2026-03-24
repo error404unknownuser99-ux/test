@@ -36,7 +36,7 @@ jobs:
           # --no-browser: Taaki runner ke andar browser na khule
           # --gui: Browser interface enable karne ke liye
           # --port 8501: Default streamlit port
-          nohup aider --gui --port 8501 --model gemini/gemini-1.5-pro --no-browser > aider.log 2>&1 &
+          nohup aider --gui --port 8501 --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
           
           sleep 10 # Aider load hone ka wait
           
