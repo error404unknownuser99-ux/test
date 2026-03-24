@@ -1,4 +1,4 @@
-name: Aider GUI 3.1 Flash Lite - Fixed Final
+name: Aider GUI Direct Mode - Back to Basics
 
 on:
   workflow_dispatch:
@@ -17,37 +17,43 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Aider
+      - name: Pre-install Aider Browser
         run: |
           pip install aider-chat
+          # Pichhli baar ye automatic hua tha, hum ise pehle hi kar dete hain
+          pip install 'aider-chat[browser]'
           wget https://github.com/ekzhang/bore/releases/download/v0.5.1/bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           tar -xf bore-v0.5.1-x86_64-unknown-linux-musl.tar.gz
           chmod +x bore
 
-      - name: Launch Aider GUI Server
+      - name: Launch Aider GUI (The Way That Worked)
         env:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+          # Streamlit ko network par expose karne ke liye variables
+          STREAMLIT_SERVER_ADDRESS: 0.0.0.0
+          STREAMLIT_SERVER_PORT: 8501
+          STREAMLIT_SERVER_HEADLESS: "true"
         run: |
-          echo "🚀 Aider GUI Server start ho raha hai..."
+          echo "🚀 Starting Aider GUI in Background..."
           
-          # Fix: '--browser false' hata diya kyunki wo 'false' naam ki file bana raha tha.
-          # '--gui' aur '--no-browser' ka combination best hai.
+          # Pichhla wala command: simple aur direct
           nohup aider --gui --model gemini/gemini-3.1-flash-lite --no-browser > aider.log 2>&1 &
           
-          echo "⏳ Waiting 50s for Streamlit..."
-          sleep 50
+          echo "⏳ Waiting 60s for Streamlit to wake up..."
+          sleep 60
           
-          echo "📝 --- LATEST AIDER LOGS ---"
+          echo "📝 --- AIDER STARTUP LOGS ---"
           cat aider.log
           
           echo "🌐 Starting Bore Tunnel..."
-          ./bore local 8501 --to bore.pub > bore.log 2>&1 &
+          # Is baar bore ko 0.0.0.0 par point karenge
+          ./bore local 8501 --to bore.pub --local-host 0.0.0.0 > bore.log 2>&1 &
           
           sleep 10
           BORE_URL=$(grep -o 'bore.pub:[0-9]*' bore.log | head -n 1)
-          
           echo "=========================================================="
           echo "🔗 APKA URL: http://$BORE_URL"
           echo "=========================================================="
           
+          # Logs ko live dikhate rahen
           tail -f aider.log -f bore.log
